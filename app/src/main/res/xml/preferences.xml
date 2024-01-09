@@ -1,0 +1,55 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="@string/google_api_header">
+
+        <EditTextPreference
+            android:defaultValue=""
+            android:inputType="textMultiLine"
+            android:selectAllOnFocus="true"
+            app:key="google_api_json"
+            app:title="@string/google_api_title" />
+
+        <PreferenceScreen
+            android:key="test_google_api"
+            android:summary="Tap to test the google api json parameters"
+            android:title="Test" />
+
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/anki_api_header">
+        <EditTextPreference
+            android:defaultValue=""
+            app:key="anki_connect_url"
+            android:selectAllOnFocus="true"
+            app:useSimpleSummaryProvider="true"
+            app:title="@string/anki_url_title" />
+
+        <SwitchPreference
+            app:key="anki_key_enabled"
+            app:title="@string/anki_key_switch_title" />
+
+        <EditTextPreference
+            android:defaultValue=""
+            android:dependency="anki_key_enabled"
+            app:key="anki_api_key"
+            app:useSimpleSummaryProvider="true"
+            app:title="@string/anki_api_key" />
+
+        <PreferenceScreen
+            android:key="test_anki_api"
+            android:summary="Tap to test the AnkiConnect API parameters"
+            android:title="Test" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/save">
+        <PreferenceScreen
+            android:key="save_key"
+            android:summary="Tap to save these settings (doesn't check if your values work!)"
+            android:title="Save Settings"
+            />
+    </PreferenceCategory>
+
+</PreferenceScreen>

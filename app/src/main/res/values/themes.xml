@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Base.Theme.Tranki" parent="Theme.Material3.DayNight.NoActionBar"/>
+
+    <style name="Theme.Tranki" parent="Base.Theme.Tranki" />
+
+    <style name="Theme.Tranki.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>
