@@ -46,23 +46,23 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         private fun testGoogleCloudAPI() {
-            val credsPreference: EditTextPreference? = findPreference("google_api_json");
-            val credsValue = credsPreference?.text!!
-
-            val result = Translate.test(requireContext(), credsValue)
-            if (result.first) {
-                Toast.makeText(
-                    requireContext(),
-                    "Google Cloud Translation API Authentication successful!",
-                    Toast.LENGTH_LONG
-                ).show()
-            } else {
-                Snackbar.make(
-                    requireView(),
-                    "Google Cloud Translation API Authentication failed. Message: ${result.second}",
-                    Snackbar.LENGTH_LONG
-                ).show()
-            }
+//            val credsPreference: EditTextPreference? = findPreference("google_api_json");
+//            val credsValue = credsPreference?.text!!
+//
+//            val result = Translate.test(requireContext(), credsValue)
+//            if (result.first) {
+//                Toast.makeText(
+//                    requireContext(),
+//                    "Google Cloud Translation API Authentication successful!",
+//                    Toast.LENGTH_LONG
+//                ).show()
+//            } else {
+//                Snackbar.make(
+//                    requireView(),
+//                    "Google Cloud Translation API Authentication failed. Message: ${result.second}",
+//                    Snackbar.LENGTH_LONG
+//                ).show()
+//            }
         }
 
         private fun testAnkiAPI() {
@@ -70,7 +70,7 @@ class SettingsActivity : AppCompatActivity() {
             val url = urlPreference?.text!!
 
             val keyEnabledPreference: SwitchPreference? = findPreference("anki_key_enabled")
-            val keyEnabled = keyEnabledPreference?.isEnabled!!
+            val keyEnabled = keyEnabledPreference?.isChecked!!
 
             val keyPreference: EditTextPreference? = findPreference("anki_api_key")
             val key = keyPreference?.text!!
@@ -87,7 +87,7 @@ class SettingsActivity : AppCompatActivity() {
             } else {
                 Snackbar.make(
                     requireView(),
-                    "AnkiConnect Connection failed. Message: ${result.second}",
+                    "AnkiConnect Connection failed. Error: ${result.third}",
                     Snackbar.LENGTH_LONG
                 ).show()
             }
@@ -101,7 +101,7 @@ class SettingsActivity : AppCompatActivity() {
             val url = urlPreference?.text!!
 
             val keyEnabledPreference: SwitchPreference? = findPreference("anki_key_enabled")
-            val keyEnabled = keyEnabledPreference?.isEnabled!!
+            val keyEnabled = keyEnabledPreference?.isChecked!!
 
             val keyPreference: EditTextPreference? = findPreference("anki_api_key")
             val key = keyPreference?.text!!

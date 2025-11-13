@@ -18,46 +18,50 @@ import android.widget.TextView
 import android.widget.Toast
 
 
-class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
+class TranslateFragment() : Fragment(), Parcelable {
     private var tabPosition: Int = -1
     private var decks: ArrayList<String> = ArrayList<String>()
-    private var langs = ArrayList<SpinnerItem>()
+
     private lateinit var credJson: String
     private var translationList: ArrayList<String> = ArrayList<String>()
     private lateinit var translationListView: ListView
     private var prefs: Preferences.Preferences? = null
-    private var selectedSource = ""
-    private var selectedTarget = ""
+    private var sourceLang = ""
+    private var destLang = ""
     private var selectedDeck = -1
 
+    private var translate: Translate = Translate()
+
+
+    constructor(tabPosition: Int, sourceLang: String, destLang: String) : this() {
+        this.tabPosition = tabPosition
+        this.sourceLang = sourceLang
+        this.destLang = destLang
+    }
 
     constructor(tabPosition: Int) : this() {
         this.tabPosition = tabPosition
     }
 
+
     constructor(
         tabPosition: Int,
         decks: ArrayList<String>,
-        labels: ArrayList<String>,
-        values: ArrayList<String>,
         translationList: ArrayList<String>,
-        selectedSource: String,
-        selectedTarget: String,
+        sourceLang: String,
+        destLang: String,
         selectedDeck: Int
     ): this() {
         this.tabPosition = tabPosition
         this.decks = decks  // Make a copy to ensure mutability if needed
 
-        if (labels.size == values.size) {
-            for (i in labels.indices)
-                langs.add(SpinnerItem(labels[i], values[i]))
-        }
 
         this.translationList = translationList
-        this.selectedSource = selectedSource
-        this.selectedTarget = selectedTarget
+        this.sourceLang = sourceLang
+        this.destLang = destLang
         this.selectedDeck = selectedDeck
     }
+
 
 
     override fun describeContents(): Int {
@@ -69,15 +73,10 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
         dest.writeInt(tabPosition)
         dest.writeStringList(decks)
 
-        val labels = langs.map { it.label } as ArrayList<String>
-        dest.writeStringList(labels)
-        val values = langs.map { it.value } as ArrayList<String>
-        dest.writeStringList(values)
-
         dest.writeStringList(translationList)
 
-        dest.writeString(selectedSource)
-        dest.writeString(selectedTarget)
+        dest.writeString(sourceLang)
+        dest.writeString(destLang)
 
         dest.writeInt(selectedDeck)
     }
@@ -103,22 +102,28 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        translate.init(sourceLang, destLang,
+            {
+                val toast = Toast.makeText(requireContext(), "model download successful!", Toast.LENGTH_SHORT) // in Activity
+                toast.show()
+            }, {
+                val text = "model download failed. closing app. Reason: ${it.message}"
+                val toast = Toast.makeText(requireContext(), text, Toast.LENGTH_LONG) // in Activity
+                toast.show()
+                throw it
+            }
+        )
+
         arguments?.let {
             tabPosition = it.getInt(ARG_POSITION)
             if (it.containsKey(ARG_DECKS)) {
                 decks = it.getStringArrayList(ARG_DECKS)!!
 
-                val labels = it.getStringArrayList(ARG_LABELS)!!
-                val values = it.getStringArrayList(ARG_VALUES)!!
-                if (labels.size == values.size) {
-                    for (i in labels.indices)
-                        langs.add(SpinnerItem(labels[i], values[i]))
-                }
                 translationList = it.getStringArrayList(ARG_TRANSLATIONLIST)!!
 
-                selectedSource = it.getString(ARG_SELECTED_SOURCE)!!
-                selectedTarget = it.getString(ARG_SELECTED_TARGET)!!
-                selectedDeck = it.getInt(ARG_SELECTED_DECK)!!
+                sourceLang = it.getString(ARG_SOURCE_LANG)!!
+                destLang = it.getString(ARG_DEST_LANG)!!
+                selectedDeck = it.getInt(ARG_SELECTED_DECK)
             }
         }
 
@@ -132,24 +137,12 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
         if (prefs == null)
             return
 
-        credJson = prefs!!.creds!!
-
         // deck list
         if (decks.isEmpty()) {
             getDecks()
         }
 
-        // language list
-        if (langs.isEmpty()) {
-            try {
-                val langPairs = Translate.getLanguages(credJson)
-                for (p in langPairs)
-                    langs.add(SpinnerItem(p.second, p.first))
-            } catch (e: Exception) {
-                Log.e("TranslateFragment", "Error getting language list")
-                Log.e("TranslateFragment", e.message, e)
-            }
-        }
+
 
 
     }
@@ -171,57 +164,6 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_translate, container, false)
 
-        // source language spinner
-        val sourceAdapter =
-            ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, langs)
-        sourceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        val sourceSpinner: Spinner = view.findViewById(R.id.sourcelang_spinner)
-        sourceSpinner.adapter = sourceAdapter
-        sourceSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                val mainActivity = activity as? MainActivity
-                val text = langs[position].value
-                mainActivity!!.setTabLeftText(tabPosition, text)
-                selectedSource = text
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-            }
-        }
-        if (selectedSource != "") {
-            sourceSpinner.setSelection((langs.map { it.value } as ArrayList<String>).indexOf(selectedSource))
-        }
-
-        // target language spinner
-        val targetAdapter =
-            ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, langs)
-        targetAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        val targetSpinner: Spinner = view.findViewById(R.id.targetlang_spinner)
-        targetSpinner.adapter = targetAdapter
-        targetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                val mainActivity = activity as? MainActivity
-                val text = langs[position].value
-                mainActivity!!.setTabRightText(tabPosition, text)
-                selectedTarget = text
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-            }
-        }
-        if (selectedTarget != "") {
-            targetSpinner.setSelection((langs.map { it.value } as ArrayList<String>).indexOf(selectedTarget))
-        }
 
         // decks spinner
         val decksAdapter =
@@ -247,32 +189,28 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
             decksSpinner.setSelection(selectedDeck)
         }
 
-        // remove tab button
-        val removeButton: Button = view.findViewById(R.id.remove_button)
-        removeButton.setOnClickListener(this)
-
         // translate button
         val tranButton: Button = view.findViewById(R.id.translate_button)
         tranButton.setOnClickListener {
             val inputText = view.findViewById<EditText>(R.id.trans_input).text.toString()
-            val sourceLang = sourceSpinner.selectedItem as SpinnerItem
-            val targetLang = targetSpinner.selectedItem as SpinnerItem
-
-            val output = try {
-                Translate.translate(credJson, inputText, sourceLang.value, targetLang.value)
-            } catch (e: Exception) {
-                Log.e("TranslateFragment", "Translation error")
-                Log.e("TranslateFragment", e.message, e)
-                Toast.makeText(
-                    requireContext(),
-                    "Translation Error: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-                ""
-            }
-
             val outputTV: TextView = view.findViewById(R.id.trans_output)
-            outputTV.text = output
+
+            translate.translate(
+                inputText, {
+                    outputTV.text = it
+                },
+                {
+                    Log.e("TranslateFragment", "Translation error")
+                    Log.e("TranslateFragment", it.message, it)
+                    Toast.makeText(
+                        requireContext(),
+                        "Translation Error: ${it.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    ""
+                }
+            )
+
         }
 
         // clear button
@@ -309,11 +247,11 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
                 val (front, back) = t.split("\n").take(2)
                 items.add(Pair<String, String>(front, back))
             }
-
+            val key = if (prefs!!.ankiKeyEnabled!!) prefs!!.ankiKey else null
             val message = try {
                 Anki.sync(
                     prefs!!.ankiUrl!!,
-                    prefs!!.ankiKey,
+                    key,
                     decksSpinner.selectedItem as String,
                     items
                 )
@@ -376,17 +314,11 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
 
 
     companion object CREATOR: Parcelable.Creator<TranslateFragment?> {
-        override fun createFromParcel(source: Parcel): TranslateFragment? {
+        override fun createFromParcel(source: Parcel): TranslateFragment {
             val tabPosition = source.readInt()
 
             val decks = ArrayList<String>()
             source.readStringList(decks)
-
-            val labels = ArrayList<String>()
-            source.readStringList(labels)
-
-            val values = ArrayList<String>()
-            source.readStringList(values)
 
             val translationList = ArrayList<String>()
             source.readStringList(translationList)
@@ -397,7 +329,7 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
             val selectedDeck = source.readInt()
 
 
-            return TranslateFragment(tabPosition, decks, labels, values, translationList, selectedSource, selectedTarget, selectedDeck)
+            return TranslateFragment(tabPosition, decks, translationList, selectedSource, selectedTarget, selectedDeck)
         }
 
         override fun newArray(size: Int): Array<TranslateFragment?> {
@@ -406,18 +338,18 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
 
         const val ARG_POSITION = "position"
         const val ARG_DECKS = "decks"
-        const val ARG_LABELS = "labels"
-        const val ARG_VALUES = "values"
         const val ARG_TRANSLATIONLIST = "translationList"
-        const val ARG_SELECTED_SOURCE = "selectedSource"
-        const val ARG_SELECTED_TARGET = "selectedTarget"
+        const val ARG_SOURCE_LANG = "selectedSource"
+        const val ARG_DEST_LANG = "selectedTarget"
         const val ARG_SELECTED_DECK = "selectedDeck"
 
         @JvmStatic
-        fun newInstance(position: Int) =
-            TranslateFragment(position).apply {
+        fun newInstance(position: Int, sourceLang: String, destLang: String) =
+            TranslateFragment(position, sourceLang, destLang).apply {
                 arguments = Bundle().apply {
                     putInt(ARG_POSITION, position)
+                    putString(ARG_SOURCE_LANG, sourceLang)
+                    putString(ARG_DEST_LANG, destLang)
                 }
             }
 
@@ -432,30 +364,18 @@ class TranslateFragment() : Fragment(), Parcelable, View.OnClickListener {
                     parcel.readStringList(decks)
                     putStringArrayList(ARG_DECKS, decks)
 
-                    val labels = ArrayList<String>()
-                    parcel.readStringList(labels)
-                    putStringArrayList(ARG_LABELS, labels)
-
-                    val values = ArrayList<String>()
-                    parcel.readStringList(values)
-                    putStringArrayList(ARG_VALUES, values)
-
                     val translationList = ArrayList<String>()
                     parcel.readStringList(translationList)
                     putStringArrayList(ARG_TRANSLATIONLIST, translationList)
 
-                    putString(ARG_SELECTED_SOURCE, parcel.readString())
-                    putString(ARG_SELECTED_TARGET, parcel.readString())
+                    putString(ARG_SOURCE_LANG, parcel.readString())
+                    putString(ARG_DEST_LANG, parcel.readString())
 
                     putInt(ARG_SELECTED_DECK, parcel.readInt())
                 }
             }
     }
 
-    override fun onClick(v: View?) {
-        val mainActivity = activity as? MainActivity
-        mainActivity!!.removeFragment(tabPosition)
-    }
 
 
 }

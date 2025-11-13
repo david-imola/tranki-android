@@ -43,7 +43,11 @@ android {
 }
 
 dependencies {
-
+    implementation("androidx.concurrent:concurrent-futures:1.1.0")
+    implementation("com.google.guava:guava:31.0.1-android")
+// Or a suitable version for your project
+    //implementation("com.google.guava:listenablefuture:1.0")
+    implementation("com.google.mlkit:translate:17.0.3")
     implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
@@ -53,7 +57,6 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     implementation("com.codesgood:justifiedtextview:1.1.0")
-    implementation("com.google.cloud:google-cloud-translate:1.20.0")
     implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.9")
     implementation("com.google.code.gson:gson:2.8.9")

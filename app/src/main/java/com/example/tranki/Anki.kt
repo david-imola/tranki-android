@@ -19,7 +19,7 @@ object Anki {
 
 
     fun test(url: String, key: String?): Triple<Boolean, String, String?> {
-        val versionEndpoint = "$url/version"
+        val versionEndpoint = "$url"
         val postData = if (key == null) {
             """{
                 "action": "version",
@@ -52,14 +52,17 @@ object Anki {
             launch(Dispatchers.IO) {
                 result = try {
                     var success = false
+                    var erMsg: String? = null
                     val response = client.newCall(request).execute()
                     val responseBody = response.body?.string()
                     if (response.isSuccessful) {
                         val jsonBody = JSONObject(responseBody)
-                        if (jsonBody.getInt("result") == version && jsonBody.isNull("error"))
+                        if (jsonBody.isNull("error") && jsonBody.getInt("result") == version)
                             success = true
+                        if (!jsonBody.isNull("error"))
+                            erMsg = jsonBody.getString("error")
                     }
-                    Triple(success, response.message, responseBody)
+                    Triple(success, response.message, erMsg)
                 } catch (e: Exception) {
                     val message = "AnkiConnect Client Execute Exception occurred: " +
                             (e.message ?: "Unknown AnkiConnect Client Execute Exception")
@@ -141,6 +144,13 @@ object Anki {
             val params: Params
         )
 
+        @Serializable
+        data class RequestNoKey(
+            val action: String,
+            val version: Int,
+            val params: Params
+        )
+
         val notes = ArrayList<Note>()
         for ((front, back) in items) {
             notes.add(
@@ -151,8 +161,14 @@ object Anki {
             )
         }
 
-        val req = Request("addNotes", version, key, Params(notes))
-        val requestJson = Json.encodeToString(req)
+        var requestJson = ""
+        if(key == null) {
+            val req = RequestNoKey(action = "addNotes", version, Params(notes))
+            requestJson = Json.encodeToString(req)
+        } else {
+            val req = Request("addNotes", version, key, Params(notes))
+            requestJson = Json.encodeToString(req)
+        }
 
 
         val client = OkHttpClient()

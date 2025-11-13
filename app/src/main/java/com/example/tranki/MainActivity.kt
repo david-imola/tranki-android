@@ -6,7 +6,6 @@ import android.content.SharedPreferences
 import android.os.Bundle
 import android.os.Parcel
 import android.view.Menu
-import android.widget.ImageButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.Fragment
@@ -18,25 +17,20 @@ import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.google.mlkit.nl.translate.TranslateLanguage
 
 
 class PagerAdapter(fm: FragmentManager, lc: Lifecycle) : FragmentStateAdapter(fm, lc) {
 
     var fragments = ArrayList<TranslateFragment>()
-    fun addFragment() {
-        fragments.add(TranslateFragment.newInstance(fragments.size))
-        notifyDataSetChanged()
+
+    fun initFragments(lang1: String, lang2: String) {
+        fragments.add(TranslateFragment.newInstance(0,
+            lang1, lang2))
+        fragments.add(TranslateFragment.newInstance(1,
+            lang2, lang1))
     }
 
-    fun removeFragment(position: Int) {
-        fragments.removeAt(position)
-        for (i in 0 until fragments.size) {
-            val f = fragments[i] as TranslateFragment
-            f.setTabPosition(i)
-            fragments[i] = f
-        }
-        notifyDataSetChanged()
-    }
 
     override fun getItemCount(): Int {
         return fragments.size
@@ -66,6 +60,9 @@ class MainActivity : AppCompatActivity() {
 
     private val divider = "->"
 
+    private val LANG1 = TranslateLanguage.ITALIAN
+    private val LANG2 = TranslateLanguage.ENGLISH
+
     private val onMenuItemClickListener = Toolbar.OnMenuItemClickListener { menuItem ->
         when (menuItem?.itemId) {
             R.id.action_setup -> {
@@ -86,7 +83,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-
         val toolbar: Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
         toolbar.inflateMenu(R.menu.menu_main)
@@ -96,13 +92,15 @@ class MainActivity : AppCompatActivity() {
         val viewPager: ViewPager2 = findViewById(R.id.pager)
         pagerAdapter = PagerAdapter(supportFragmentManager, lifecycle)
 
+//        tabLayout.getTabAt(0)!!.text = "{LANG1}->{LANG2}"
+//        tabLayout.getTabAt(1)!!.text = "{LANG2}->{LANG1}"
+
 
         savedInstanceState?.let {
             tabTexts = it.getStringArrayList("tabTexts") ?: ArrayList<String>()
             if (it.containsKey("fragments")) {
                 pagerAdapter.fragments =
                     it.getParcelableArrayList("fragments", TranslateFragment::class.java)!!
-                pagerAdapter.notifyDataSetChanged()
             }
         }
 
@@ -132,12 +130,13 @@ class MainActivity : AppCompatActivity() {
             tab.text = tabTexts[position]
         }.attach()
 
-        val plusButton: ImageButton = findViewById(R.id.btn_add_tab)
-        plusButton.setOnClickListener {
-            tabTexts.add("af->af")
-            pagerAdapter.addFragment()
-        }
+        tabTexts.add("${LANG1}->${LANG2}")
+        tabTexts.add("${LANG2}->${LANG1}")
 
+        if (pagerAdapter.fragments.isEmpty()) {
+            pagerAdapter.initFragments(LANG1, LANG2)
+        }
+        pagerAdapter.notifyDataSetChanged()
 
     }
 
@@ -146,30 +145,7 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    fun removeFragment(position: Int) {
-        tabTexts.removeAt(position) // this must go before removeFragment
-        pagerAdapter.removeFragment(position)
-    }
 
-    fun setTabLeftText(position: Int, left: String) {
-        if (position < tabTexts.size) {
-            val text = tabTexts[position]
-            val right = text.split(divider)[1]
-            val tabText = "$left$divider$right"
-            tabLayout.getTabAt(position)!!.text = tabText
-            tabTexts[position] = tabText
-        }
-    }
-
-    fun setTabRightText(position: Int, right: String) {
-        if (position < tabTexts.size) {
-            val text = tabTexts[position]
-            val left = text.split(divider)[0]
-            val tabText = "$left$divider$right"
-            tabLayout.getTabAt(position)!!.text = tabText
-            tabTexts[position] = tabText
-        }
-    }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
@@ -182,16 +158,9 @@ class MainActivity : AppCompatActivity() {
 
 
 
-        // only write those fragments whose tab index is > -1
-        var i = 0
-        for(frag in pagerAdapter.fragments) {
-            if (frag.getTabPosition() == -1)
-                break
-            i++
-        }
 
         // fragments
-        val fragmentsSubList = pagerAdapter.fragments.subList(0, i)
+        val fragmentsSubList = pagerAdapter.fragments
         val parcel = Parcel.obtain()
         parcel.writeList(fragmentsSubList)
         val bytes = parcel.marshall()
@@ -199,7 +168,7 @@ class MainActivity : AppCompatActivity() {
         val fragments = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
 
         // tab texts
-        val tabTextsSubList = tabTexts.subList(0, i)
+        val tabTextsSubList = tabTexts
         val gson = Gson()
         val tabTexts = gson.toJson(tabTextsSubList)
 
